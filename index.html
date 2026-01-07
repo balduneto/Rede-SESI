@@ -1,315 +1,291 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Users, 
-  School, 
-  Factory, 
-  Map as MapIcon, 
-  Info,
-  ChevronRight,
-  BarChart3,
-  TrendingUp,
-  Building2,
-  FilterX,
-  ChevronDown,
-  MapPin,
-  ClipboardList,
-  MousePointer2,
-  X,
-  ArrowDownWideNarrow
-} from 'lucide-react';
-
-// URLs Absolutas para evitar quebra de caminhos no GitHub Pages
-const LOGO_URL = "https://i.postimg.cc/5y6TzvGM/marca_SESI_2024_completa_colorida.png";
-const MAPA_URL = "https://i.postimg.cc/mDJ1GHCr/Mapa_Goiás.png";
-
-const GOIAS_SCHOOL_DATA = [
-  { id: 1, city: "Flores de Goiás", school: "E. M. Santa Maria", students: 160, category: "Gestão de Escolas Municipais", x: 88, y: 35 },
-  { id: 2, city: "Rio Quente", school: "E. M. Lourenço Batista", students: 600, category: "Gestão de Escolas Municipais", x: 62, y: 74 },
-  { id: 3, city: "Terezópolis de Goiás", school: "Prof. Divina Maria Felício", students: 180, category: "Gestão de Escolas Municipais", x: 55, y: 53 },
-  { id: 4, city: "Santo Antônio do Descoberto", school: "E. M. Abdon Elias", students: 1800, category: "Gestão de Escolas Municipais", x: 82, y: 49 },
-  { id: 5, city: "Alto Horizonte", school: "C. M. Divino Bernardo Gomes", students: 60, category: "Gestão de Escolas Municipais", x: 48, y: 28 },
-  { id: 6, city: "Crixás", school: "Sesi Crixás (Aura Minerações)", students: 650, category: "Indústria", x: 38, y: 41 },
-  { id: 7, city: "Minaçu", school: "Sesi SAMA (Mineração Serra Verde)", students: 350, category: "Indústria", x: 56, y: 15 },
-  { id: 8, city: "Goiânia", school: "Sesi Planalto", students: 1500, category: "Rede SESI", x: 51, y: 56 },
-  { id: 9, city: "Goiânia", school: "Sesi Canaã", students: 1238, category: "Rede SESI", x: 52, y: 57 },
-  { id: 10, city: "Anápolis", school: "Sesi Jundiaí", students: 750, category: "Rede SESI", x: 58, y: 52 },
-  { id: 11, city: "Goiânia", school: "Sesi Jd. Colorado", students: 722, category: "Rede SESI", x: 50, y: 55 },
-  { id: 12, city: "Itumbiara", school: "Sesi Itumbiara", students: 680, category: "Rede SESI", x: 53, y: 89 },
-  { id: 13, city: "Catalão", school: "Sesi Catalão", students: 647, category: "Rede SESI", x: 78, y: 83 },
-  { id: 14, city: "Anápolis", school: "Sesi Jaiara", students: 569, category: "Rede SESI", x: 59, y: 51 },
-  { id: 15, city: "Rio Verde", school: "Sesi Rio Verde", students: 567, category: "Rede SESI", x: 28, y: 76 },
-  { id: 16, city: "Crixás", school: "Sesi Crixás", students: 527, category: "Rede SESI", x: 40, y: 40 },
-  { id: 17, city: "Goiânia", school: "Sesi Campinas", students: 500, category: "Rede SESI", x: 52, y: 55 },
-  { id: 18, city: "Luziânia", school: "Sesi Luziânia", students: 492, category: "Rede SESI", x: 82, y: 54 },
-  { id: 19, city: "Mineiros", school: "Sesi Mineiros", students: 438, category: "Rede SESI", x: 12, y: 81 },
-  { id: 20, city: "Aparecida de Goiânia", school: "Sesi Aparecida", students: 349, category: "Rede SESI", x: 52, y: 60 },
-  { id: 21, city: "Minaçu", school: "Sesi Minaçu", students: 264, category: "Rede SESI", x: 57, y: 14 },
-  { id: 22, city: "Niquelândia", school: "Sesi Niquelândia", students: 214, category: "Rede SESI", x: 59, y: 34 },
-  { id: 23, city: "Aparecida de Goiânia", school: "Sesi Charuri", students: 197, category: "Rede SESI", x: 53, y: 61 },
-  { id: 24, city: "Goiânia", school: "Sesi Universitário", students: 187, category: "Rede SESI", x: 53, y: 56 },
-  { id: 25, city: "Goianésia", school: "Sesi Goianésia", students: 175, category: "Rede SESI", x: 54, y: 43 },
-];
-
-const CATEGORIES = {
-  "Rede SESI": { color: "bg-green-500", text: "text-green-600", border: "border-green-500", label: "Rede SESI", icon: <School size={20} /> },
-  "Gestão de Escolas Municipais": { color: "bg-blue-500", text: "text-blue-600", border: "border-blue-500", label: "Gestão Municipal", icon: <Building2 size={20} /> },
-  "Indústria": { color: "bg-emerald-900", text: "text-emerald-900", border: "border-emerald-900", label: "Indústria", icon: <Factory size={20} /> },
-};
-
-export default function App() {
-  const [selectedCity, setSelectedCity] = useState("Todas");
-  const [selectedSchool, setSelectedSchool] = useState("Todas");
-  const [selectedProject, setSelectedProject] = useState("Todas");
-  const [hoveredSchool, setHoveredSchool] = useState(null);
-  const [clickedSchool, setClickedSchool] = useState(null);
-
-  // --- Lógica de Sincronização de Filtros (CRÍTICA PARA ALTO HORIZONTE) ---
-  useEffect(() => {
-    // Se a cidade selecionada não possui dados para o projeto atual, reseta o projeto
-    if (selectedCity !== "Todas") {
-      const cityHasProject = GOIAS_SCHOOL_DATA.some(s => 
-        s.city === selectedCity && (selectedProject === "Todas" || s.category === selectedProject)
-      );
-      if (!cityHasProject) {
-        setSelectedProject("Todas");
-      }
-    }
-  }, [selectedCity, selectedProject]);
-
-  // Reseta escola se ela for filtrada por outra seleção
-  useEffect(() => {
-    if (selectedSchool !== "Todas") {
-      const isVisible = GOIAS_SCHOOL_DATA.some(s => 
-        s.school === selectedSchool && 
-        (selectedCity === "Todas" || s.city === selectedCity) &&
-        (selectedProject === "Todas" || s.category === selectedProject)
-      );
-      if (!isVisible) setSelectedSchool("Todas");
-    }
-  }, [selectedCity, selectedProject, selectedSchool]);
-
-  const citiesList = useMemo(() => ["Todas", ...new Set(GOIAS_SCHOOL_DATA.map(d => d.city))].sort(), []);
-  
-  const schoolsList = useMemo(() => {
-    let base = GOIAS_SCHOOL_DATA;
-    if (selectedCity !== "Todas") base = base.filter(d => d.city === selectedCity);
-    if (selectedProject !== "Todas") base = base.filter(d => d.category === selectedProject);
-    return ["Todas", ...base.map(d => d.school)].sort();
-  }, [selectedCity, selectedProject]);
-
-  const filteredData = useMemo(() => {
-    return GOIAS_SCHOOL_DATA.filter(item => {
-      const matchesCity = selectedCity === "Todas" || item.city === selectedCity;
-      const matchesSchool = selectedSchool === "Todas" || item.school === selectedSchool;
-      const matchesProject = selectedProject === "Todas" || item.category === selectedProject;
-      return matchesCity && matchesSchool && matchesProject;
-    }).sort((a, b) => b.students - a.students);
-  }, [selectedCity, selectedSchool, selectedProject]);
-
-  const categoryStats = useMemo(() => {
-    const stats = { "Rede SESI": 0, "Gestão de Escolas Municipais": 0, "Indústria": 0, "Total": 0 };
-    filteredData.forEach(item => {
-      if (stats[item.category] !== undefined) stats[item.category] += item.students;
-      stats["Total"] += item.students;
-    });
-    return stats;
-  }, [filteredData]);
-
-  const getBubbleSize = (count) => {
-    const minSize = 16;
-    const maxSize = 52;
-    // Escala linear para manter a integridade visual do volume
-    return minSize + ((count - 60) / (1800 - 60)) * (maxSize - minSize);
-  };
-
-  const clearFilters = () => {
-    setSelectedCity("Todas");
-    setSelectedSchool("Todas");
-    setSelectedProject("Todas");
-    setClickedSchool(null);
-  };
-
-  const activeDetail = clickedSchool || hoveredSchool;
-
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-2 sm:p-4 md:p-8 overflow-x-hidden">
-      <header className="max-w-[1400px] mx-auto mb-8 flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-center md:text-left order-2 md:order-1">
-            <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-              <div className="bg-green-600 p-2 rounded-xl shadow-lg text-white">
-                <BarChart3 size={24} />
-              </div>
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase leading-tight">
-                Painel Geográfico <span className="text-green-600">SESI Goiás</span>
-              </h1>
-            </div>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[9px] md:text-[10px]">Consolidado de Matrículas Ativas • 2026</p>
-          </div>
-          <div className="flex-shrink-0 order-1 md:order-2">
-            <img src={LOGO_URL} alt="Logo SESI" className="h-12 md:h-20 w-auto object-contain mx-auto" />
-          </div>
-        </div>
-
-        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 border-t border-slate-200 pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Cidade</label>
-              <div className="relative">
-                <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-green-500 outline-none appearance-none cursor-pointer">
-                  {citiesList.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Unidade Escolar</label>
-              <div className="relative">
-                <School size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-green-500 outline-none appearance-none cursor-pointer truncate">
-                  {schoolsList.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="flex items-end">
-              <button onClick={clearFilters} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-black transition-all">
-                <FilterX size={16} /> LIMPAR FILTROS
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* KPI Cards */}
-      <section className="max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-        <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg transition-all">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-slate-50 text-slate-400 rounded-2xl"><Users size={20} /></div>
-            <TrendingUp size={16} className="text-slate-200" />
-          </div>
-          <div>
-            <h3 className="text-3xl md:text-4xl font-black">{categoryStats.Total.toLocaleString('pt-BR')}</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Total Filtrado</p>
-          </div>
-        </div>
-        {Object.entries(CATEGORIES).map(([key, config]) => (
-          <div key={key} onClick={() => setSelectedProject(key)} className={`cursor-pointer p-6 rounded-[32px] border transition-all flex flex-col justify-between group hover:shadow-lg ${selectedProject === key ? `${config.color} border-transparent text-white shadow-xl scale-[1.02]` : 'bg-white border-slate-100 text-slate-800'}`}>
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-2xl ${selectedProject === key ? 'bg-white/20' : 'bg-slate-50 ' + config.text}`}>{config.icon}</div>
-              <div className={`w-2 h-2 rounded-full ${selectedProject === key ? 'bg-white' : config.color}`}></div>
-            </div>
-            <div>
-              <h3 className="text-3xl md:text-4xl font-black">{categoryStats[key].toLocaleString('pt-BR')}</h3>
-              <p className={`text-[10px] font-black uppercase tracking-widest ${selectedProject === key ? 'text-white/70' : 'text-slate-400'}`}>{config.label}</p>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {/* Mapa e Listagem */}
-      <main className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 bg-white p-4 sm:p-10 rounded-[40px] md:rounded-[48px] shadow-sm border border-slate-100 relative min-h-[500px] md:min-h-[750px] flex flex-col">
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-            <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 italic uppercase">
-              <MapIcon className="text-green-600" size={24} /> BI Geográfico
-            </h2>
-            <div className="flex flex-wrap justify-center gap-3">
-              {Object.entries(CATEGORIES).map(([key, config]) => (
-                <div key={key} className="flex items-center gap-1.5">
-                  <div className={`w-2.5 h-2.5 rounded-full ${config.color}`}></div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{config.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative flex-grow bg-slate-50/50 rounded-[40px] border-2 border-slate-100/50 overflow-hidden flex items-center justify-center">
-            {/* Mapa com proporção preservada para evitar distorção de coordenadas */}
-            <div className="relative w-full h-full flex items-center justify-center aspect-[4/3]">
-              <img src={MAPA_URL} className="w-full h-full object-contain mix-blend-multiply opacity-80 pointer-events-none" alt="Mapa de Goiás" crossOrigin="anonymous" />
-              
-              <div className="absolute inset-0 z-20">
-                {filteredData.map((item) => {
-                  const config = CATEGORIES[item.category] || { color: "bg-slate-400" };
-                  const size = getBubbleSize(item.students);
-                  const isActive = activeDetail?.id === item.id;
-                  
-                  return (
-                    <div key={item.id} className="absolute transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${item.x}%`, top: `${item.y}%`, zIndex: isActive ? 100 : 30 }}>
-                      <span className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 font-black uppercase text-[9px] md:text-[10px] tracking-tight whitespace-nowrap px-1.5 py-0.5 rounded transition-all pointer-events-none ${isActive ? 'bg-slate-900 text-white z-[101]' : 'bg-white/70 text-slate-900 shadow-sm opacity-80'}`}>
-                        {item.city}
-                      </span>
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); setClickedSchool(clickedSchool?.id === item.id ? null : item); }}
-                        onMouseEnter={() => !clickedSchool && setHoveredSchool(item)}
-                        onMouseLeave={() => setHoveredSchool(null)}
-                        className={`rounded-full shadow-2xl border-2 md:border-[3px] border-white cursor-pointer transition-all duration-500 ${config.color} ${isActive ? 'scale-125 md:scale-150 ring-[10px] ring-white/30 brightness-110' : 'opacity-85 hover:opacity-100'}`} 
-                        style={{ width: `${size}px`, height: `${size}px` }} 
-                      />
-                      {isActive && (
-                        <div className="absolute bottom-full mb-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-5 md:p-7 rounded-[32px] shadow-2xl w-[280px] md:min-w-[320px] z-[100] animate-in fade-in slide-in-from-bottom-4 border border-white/10 ring-1 ring-white/20">
-                          <div className="flex justify-between items-start mb-3">
-                            <span className={`text-[8px] md:text-[10px] font-black px-2.5 py-1 rounded-lg ${config.color} text-white uppercase`}>{config.label}</span>
-                            <button onClick={(e) => { e.stopPropagation(); setClickedSchool(null); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><X size={14} /></button>
-                          </div>
-                          <h4 className="font-black text-base md:text-xl leading-tight mb-4">{item.school}</h4>
-                          <div className="pt-4 border-t border-white/10 flex justify-between items-end">
-                            <div>
-                              <p className="text-[9px] font-black text-white/40 uppercase">Total Matrículas</p>
-                              <p className="text-2xl md:text-3xl font-black text-green-400 tabular-nums">{item.students.toLocaleString('pt-BR')}</p>
-                            </div>
-                            <Users size={24} className="text-white/20" />
-                          </div>
-                          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 rotate-45 border-r border-b border-white/10"></div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-4 bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[600px] md:h-[750px]">
-          <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col gap-2 bg-slate-50/20">
-            <div className="flex items-center justify-between"><span className="font-black text-slate-900 uppercase text-lg tracking-tight">Lista de Unidades</span><ArrowDownWideNarrow size={20} className="text-green-600" /></div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest"><Info size={12} /> Ordenação por Volume</div>
-          </div>
-          <div className="flex-grow overflow-y-auto p-5 space-y-4 custom-scrollbar">
-            {filteredData.map((item) => {
-              const config = CATEGORIES[item.category] || { color: "bg-slate-400" };
-              const isSelected = activeDetail?.id === item.id;
-              return (
-                <div key={item.id} className={`p-6 rounded-[32px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-slate-900 border-slate-900 text-white shadow-xl -translate-y-1' : 'bg-white border-transparent hover:bg-slate-50'}`} onClick={() => setClickedSchool(item)} onMouseEnter={() => !clickedSchool && setHoveredSchool(item)} onMouseLeave={() => setHoveredSchool(null)}>
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-center mb-1"><span className={`text-[8px] md:text-[9px] font-black uppercase ${isSelected ? 'text-white/40' : 'text-slate-400'}`}>{item.city}</span><span className={`w-2 h-2 rounded-full ${config.color}`}></span></div>
-                    <h4 className="font-bold text-base leading-tight mb-4">{item.school}</h4>
-                    <div className="flex items-center justify-between text-2xl font-black tabular-nums tracking-tighter">
-                      <span>{item.students.toLocaleString('pt-BR')} <span className="text-[10px] font-medium opacity-50 ml-1 italic">alunos</span></span>
-                      <ChevronRight size={18} className={isSelected ? 'text-white translate-x-1' : 'text-slate-200'} />
-                    </div>
-                  </div>
-                  <div className={`absolute top-0 right-0 w-2 h-full ${config.color}`}></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </main>
-
-      <footer className="max-w-[1400px] mx-auto mt-12 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 pb-16">
-        <div className="flex items-center gap-3 font-black italic text-3xl md:text-4xl text-slate-200 uppercase select-none">SESI <span className="text-green-600 not-italic">GOIÁS</span></div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border border-slate-200 px-4 py-2 rounded-full">Matrículas Auditadas • 2024</p>
-      </footer>
-
-      <style>{`
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infográfico de Matrículas SESI Goiás</title>
+    <!-- Tailwind CSS para Design Responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React e Babel para Lógica no Navegador (Garante compatibilidade GitHub) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-      `}</style>
-    </div>
-  );
-}
+        .map-container { aspect-ratio: 4/3; }
+        @media (max-width: 640px) { select { font-size: 16px !important; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        const LOGO_URL = "https://i.postimg.cc/5y6TzvGM/marca_SESI_2024_completa_colorida.png";
+        const MAPA_URL = "https://i.postimg.cc/mDJ1GHCr/Mapa_Goiás.png";
+
+        const GOIAS_SCHOOL_DATA = [
+            { id: 1, city: "Flores de Goiás", school: "E. M. Santa Maria", students: 160, category: "Gestão de Escolas Municipais", x: 88, y: 35 },
+            { id: 2, city: "Rio Quente", school: "E. M. Lourenço Batista", students: 600, category: "Gestão de Escolas Municipais", x: 62, y: 74 },
+            { id: 3, city: "Terezópolis de Goiás", school: "Prof. Divina Maria Felício", students: 180, category: "Gestão de Escolas Municipais", x: 55, y: 53 },
+            { id: 4, city: "Santo Antônio do Descoberto", school: "E. M. Abdon Elias", students: 1800, category: "Gestão de Escolas Municipais", x: 82, y: 49 },
+            { id: 5, city: "Alto Horizonte", school: "C. M. Divino Bernardo Gomes", students: 60, category: "Gestão de Escolas Municipais", x: 48, y: 28 },
+            { id: 6, city: "Crixás", school: "Sesi Crixás (Aura Minerações)", students: 650, category: "Indústria", x: 38, y: 41 },
+            { id: 7, city: "Minaçu", school: "Sesi SAMA (Mineração Serra Verde)", students: 350, category: "Indústria", x: 56, y: 15 },
+            { id: 8, city: "Goiânia", school: "Sesi Planalto", students: 1500, category: "Rede SESI", x: 51, y: 56 },
+            { id: 9, city: "Goiânia", school: "Sesi Canaã", students: 1238, category: "Rede SESI", x: 52, y: 57 },
+            { id: 10, city: "Anápolis", school: "Sesi Jundiaí", students: 750, category: "Rede SESI", x: 58, y: 52 },
+            { id: 11, city: "Goiânia", school: "Sesi Jd. Colorado", students: 722, category: "Rede SESI", x: 50, y: 55 },
+            { id: 12, city: "Itumbiara", school: "Sesi Itumbiara", students: 680, category: "Rede SESI", x: 53, y: 89 },
+            { id: 13, city: "Catalão", school: "Sesi Catalão", students: 647, category: "Rede SESI", x: 78, y: 83 },
+            { id: 14, city: "Anápolis", school: "Sesi Jaiara", students: 569, category: "Rede SESI", x: 59, y: 51 },
+            { id: 15, city: "Rio Verde", school: "Sesi Rio Verde", students: 567, category: "Rede SESI", x: 28, y: 76 },
+            { id: 16, city: "Crixás", school: "Sesi Crixás", students: 527, category: "Rede SESI", x: 40, y: 40 },
+            { id: 17, city: "Goiânia", school: "Sesi Campinas", students: 500, category: "Rede SESI", x: 52, y: 55 },
+            { id: 18, city: "Luziânia", school: "Sesi Luziânia", students: 492, category: "Rede SESI", x: 82, y: 54 },
+            { id: 19, city: "Mineiros", school: "Sesi Mineiros", students: 438, category: "Rede SESI", x: 12, y: 81 },
+            { id: 20, city: "Aparecida de Goiânia", school: "Sesi Aparecida", students: 349, category: "Rede SESI", x: 52, y: 60 },
+            { id: 21, city: "Minaçu", school: "Sesi Minaçu", students: 264, category: "Rede SESI", x: 57, y: 14 },
+            { id: 22, city: "Niquelândia", school: "Sesi Niquelândia", students: 214, category: "Rede SESI", x: 59, y: 34 },
+            { id: 23, city: "Aparecida de Goiânia", school: "Sesi Charuri", students: 197, category: "Rede SESI", x: 53, y: 61 },
+            { id: 24, city: "Goiânia", school: "Sesi Universitário", students: 187, category: "Rede SESI", x: 53, y: 56 },
+            { id: 25, city: "Goianésia", school: "Sesi Goianésia", students: 175, category: "Rede SESI", x: 54, y: 43 },
+        ];
+
+        const CATEGORIES = {
+            "Rede SESI": { color: "bg-green-500", text: "text-green-600", label: "Rede SESI", icon: "school" },
+            "Gestão de Escolas Municipais": { color: "bg-blue-500", text: "text-blue-600", label: "Gestão Municipal", icon: "building-2" },
+            "Indústria": { color: "bg-emerald-900", text: "text-emerald-900", label: "Indústria", icon: "factory" },
+        };
+
+        function App() {
+            const [selectedCity, setSelectedCity] = useState("Todas");
+            const [selectedSchool, setSelectedSchool] = useState("Todas");
+            const [selectedProject, setSelectedProject] = useState("Todas");
+            const [hoveredSchool, setHoveredSchool] = useState(null);
+            const [clickedSchool, setClickedSchool] = useState(null);
+
+            // Sincronização de Filtros (Alto Horizonte Fix)
+            useEffect(() => {
+                if (selectedCity !== "Todas") {
+                    const cityHasProject = GOIAS_SCHOOL_DATA.some(s => 
+                        s.city === selectedCity && (selectedProject === "Todas" || s.category === selectedProject)
+                    );
+                    if (!cityHasProject) setSelectedProject("Todas");
+                }
+            }, [selectedCity]);
+
+            const citiesList = useMemo(() => ["Todas", ...new Set(GOIAS_SCHOOL_DATA.map(d => d.city))].sort(), []);
+            const schoolsList = useMemo(() => {
+                let base = GOIAS_SCHOOL_DATA;
+                if (selectedCity !== "Todas") base = base.filter(d => d.city === selectedCity);
+                if (selectedProject !== "Todas") base = base.filter(d => d.category === selectedProject);
+                return ["Todas", ...base.map(d => d.school)].sort();
+            }, [selectedCity, selectedProject]);
+
+            const filteredData = useMemo(() => {
+                return GOIAS_SCHOOL_DATA.filter(item => {
+                    const matchesCity = selectedCity === "Todas" || item.city === selectedCity;
+                    const matchesSchool = selectedSchool === "Todas" || item.school === selectedSchool;
+                    const matchesProject = selectedProject === "Todas" || item.category === selectedProject;
+                    return matchesCity && matchesSchool && matchesProject;
+                }).sort((a, b) => b.students - a.students);
+            }, [selectedCity, selectedSchool, selectedProject]);
+
+            const categoryStats = useMemo(() => {
+                const stats = { "Rede SESI": 0, "Gestão de Escolas Municipais": 0, "Indústria": 0, "Total": 0 };
+                filteredData.forEach(item => {
+                    if (stats[item.category] !== undefined) stats[item.category] += item.students;
+                    stats["Total"] += item.students;
+                });
+                return stats;
+            }, [filteredData]);
+
+            const getBubbleSize = (count) => {
+                const minSize = 16;
+                const maxSize = 52;
+                return minSize + ((count - 60) / (1800 - 60)) * (maxSize - minSize);
+            };
+
+            const clearFilters = () => {
+                setSelectedCity("Todas");
+                setSelectedSchool("Todas");
+                setSelectedProject("Todas");
+                setClickedSchool(null);
+            };
+
+            const activeDetail = clickedSchool || hoveredSchool;
+
+            return (
+                <div className="min-h-screen p-3 md:p-8">
+                    <header className="max-w-[1400px] mx-auto mb-8">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                            <div className="text-center md:text-left">
+                                <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                                    <div className="bg-green-600 p-2 rounded-xl text-white shadow-lg">
+                                        <i data-lucide="bar-chart-3"></i>
+                                    </div>
+                                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase">
+                                        Painel Estratégico <span className="text-green-600">SESI Goiás</span>
+                                    </h1>
+                                </div>
+                                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Censo de Matrículas Ativas • 2026</p>
+                            </div>
+                            <img src={LOGO_URL} alt="SESI" className="h-14 md:h-20 object-contain" />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-200 pt-6">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Localidade</label>
+                                <div className="relative">
+                                    <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold appearance-none cursor-pointer shadow-sm focus:ring-2 focus:ring-green-500 outline-none">
+                                        {citiesList.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30"><i data-lucide="chevron-down" size="16"></i></div>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Unidade</label>
+                                <div className="relative">
+                                    <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold appearance-none cursor-pointer shadow-sm truncate focus:ring-2 focus:ring-green-500 outline-none">
+                                        {schoolsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30"><i data-lucide="chevron-down" size="16"></i></div>
+                                </div>
+                            </div>
+                            <div className="flex items-end">
+                                <button onClick={clearFilters} className="w-full py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase hover:bg-slate-800 transition-all shadow-md">
+                                    Limpar Filtros
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <section className="max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg transition-all">
+                            <i data-lucide="users" class="text-slate-300 mb-4"></i>
+                            <div>
+                                <h3 className="text-3xl md:text-4xl font-black">{categoryStats.Total.toLocaleString('pt-BR')}</h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase opacity-60">Total Filtrado</p>
+                            </div>
+                        </div>
+                        {Object.entries(CATEGORIES).map(([key, config]) => (
+                            <div key={key} onClick={() => setSelectedProject(key)} className={`cursor-pointer p-6 rounded-[32px] border transition-all flex flex-col justify-between hover:shadow-lg ${selectedProject === key ? `${config.color} border-transparent text-white shadow-xl scale-[1.02]` : 'bg-white border-slate-100 text-slate-800'}`}>
+                                <i data-lucide={config.icon} class={`${selectedProject === key ? 'text-white/40' : 'text-slate-300'} mb-4`}></i>
+                                <div>
+                                    <h3 className="text-3xl md:text-4xl font-black">{categoryStats[key].toLocaleString('pt-BR')}</h3>
+                                    <p className={`text-[10px] font-black uppercase ${selectedProject === key ? 'text-white/70' : 'text-slate-400'}`}>{config.label}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </section>
+
+                    <main className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        <div className="lg:col-span-8 bg-white p-4 sm:p-10 rounded-[40px] md:rounded-[48px] shadow-sm border border-slate-100 relative min-h-[500px] md:min-h-[750px] flex flex-col">
+                            <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+                                <h2 className="text-xl font-black text-slate-900 uppercase italic flex items-center gap-2">
+                                    <i data-lucide="map-icon" class="text-green-600"></i> Distribuição Geográfica
+                                </h2>
+                                <div className="flex gap-4">
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-green-500"></div><span className="text-[9px] font-bold text-slate-400 uppercase">SESI</span></div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span className="text-[9px] font-bold text-slate-400 uppercase">MUNICIPAL</span></div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-900"></div><span className="text-[9px] font-bold text-slate-400 uppercase">INDÚSTRIA</span></div>
+                                </div>
+                            </div>
+
+                            <div className="relative flex-grow bg-slate-50/50 rounded-[40px] border-2 border-slate-100 overflow-hidden flex items-center justify-center">
+                                <div className="relative w-full h-full flex items-center justify-center aspect-[4/3]">
+                                    <img src={MAPA_URL} className="w-full h-full object-contain mix-blend-multiply opacity-80" alt="Mapa" />
+                                    <div className="absolute inset-0 z-20">
+                                        {filteredData.map((item) => {
+                                            const config = CATEGORIES[item.category] || { color: "bg-slate-400" };
+                                            const size = getBubbleSize(item.students);
+                                            const isActive = activeDetail?.id === item.id;
+                                            return (
+                                                <div key={item.id} className="absolute transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${item.x}%`, top: `${item.y}%`, zIndex: isActive ? 100 : 30 }}>
+                                                    <span className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 font-black uppercase text-[9px] px-1.5 py-0.5 rounded transition-all ${isActive ? 'bg-slate-900 text-white z-[101]' : 'bg-white/70 text-slate-900 shadow-sm opacity-80'}`}>
+                                                        {item.city}
+                                                    </span>
+                                                    <div 
+                                                        onClick={(e) => { e.stopPropagation(); setClickedSchool(clickedSchool?.id === item.id ? null : item); }}
+                                                        onMouseEnter={() => !clickedSchool && setHoveredSchool(item)}
+                                                        onMouseLeave={() => setHoveredSchool(null)}
+                                                        className={`rounded-full shadow-2xl border-2 md:border-[3px] border-white cursor-pointer transition-all duration-500 ${config.color} ${isActive ? 'scale-125 md:scale-150 ring-[10px] ring-white/30 brightness-110' : 'opacity-85'}`} 
+                                                        style={{ width: `${size}px`, height: `${size}px` }} 
+                                                    />
+                                                    {isActive && (
+                                                        <div className="absolute bottom-full mb-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-5 rounded-[32px] shadow-2xl w-[280px] z-[100] animate-in fade-in border border-white/10 ring-1 ring-white/20">
+                                                            <div className="flex justify-between items-start mb-3">
+                                                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg ${config.color} text-white uppercase`}>{config.label}</span>
+                                                                <button onClick={(e) => { e.stopPropagation(); setClickedSchool(null); }} className="text-white/40 hover:text-white"><i data-lucide="x" size="14"></i></button>
+                                                            </div>
+                                                            <h4 className="font-black text-base leading-tight mb-4">{item.school}</h4>
+                                                            <div className="pt-4 border-t border-white/10 flex justify-between items-end">
+                                                                <div>
+                                                                    <p className="text-[9px] font-black text-white/40 uppercase">Total Matrículas</p>
+                                                                    <p className="text-2xl font-black text-green-400">{item.students.toLocaleString('pt-BR')}</p>
+                                                                </div>
+                                                                <i data-lucide="users" class="text-white/20"></i>
+                                                            </div>
+                                                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 rotate-45 border-r border-b border-white/10"></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-4 bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[600px] md:h-[750px]">
+                            <div className="p-6 md:p-8 border-b border-slate-50 bg-slate-50/20">
+                                <div className="flex items-center justify-between font-black text-slate-900 uppercase text-lg">Ranking de Unidades <i data-lucide="arrow-down-wide-narrow" class="text-green-600"></i></div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Classificado por volume</p>
+                            </div>
+                            <div className="flex-grow overflow-y-auto p-5 space-y-4 custom-scrollbar">
+                                {filteredData.map((item) => {
+                                    const config = CATEGORIES[item.category] || { color: "bg-slate-400" };
+                                    const isSelected = activeDetail?.id === item.id;
+                                    return (
+                                        <div key={item.id} className={`p-6 rounded-[32px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-slate-900 border-slate-900 text-white shadow-xl -translate-y-1' : 'bg-white border-transparent hover:bg-slate-50'}`} onClick={() => setClickedSchool(item)} onMouseEnter={() => !clickedSchool && setHoveredSchool(item)} onMouseLeave={() => setHoveredSchool(null)}>
+                                            <div className="relative z-10">
+                                                <div className="flex justify-between items-center mb-1"><span className={`text-[9px] font-black uppercase ${isSelected ? 'text-white/40' : 'text-slate-400'}`}>{item.city}</span><span className={`w-2 h-2 rounded-full ${config.color}`}></span></div>
+                                                <h4 className="font-bold text-base leading-tight mb-4">{item.school}</h4>
+                                                <div className="flex items-center justify-between text-2xl font-black tabular-nums tracking-tighter">
+                                                    <span>{item.students.toLocaleString('pt-BR')} <span className="text-[10px] font-medium opacity-50 ml-1 italic">alunos</span></span>
+                                                    <i data-lucide="chevron-right" class={isSelected ? 'text-white' : 'text-slate-200'}></i>
+                                                </div>
+                                            </div>
+                                            <div className={`absolute top-0 right-0 w-2 h-full ${config.color}`}></div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </main>
+
+                    <footer className="max-w-[1400px] mx-auto mt-12 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 pb-16">
+                        <div className="font-black italic text-3xl text-slate-200 uppercase select-none">SESI <span className="text-green-600 not-italic">GOIÁS</span></div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-200 px-4 py-2 rounded-full">Sistema Auditado • Referência 2026</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        // Renderização e inicialização de ícones
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+        
+        // Timer para garantir que o React renderizou antes do Lucide processar os ícones
+        setTimeout(() => lucide.createIcons(), 500);
+    </script>
+</body>
+</html>

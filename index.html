@@ -18,11 +18,10 @@ import {
   ArrowDownWideNarrow
 } from 'lucide-react';
 
-// URLs Absolutas para garantir funcionamento no GitHub Pages
+// Ativos com URLs absolutas e seguras (HTTPS) para compatibilidade total com GitHub Pages
 const LOGO_URL = "https://i.postimg.cc/5y6TzvGM/marca_SESI_2024_completa_colorida.png";
 const MAPA_URL = "https://i.postimg.cc/mDJ1GHCr/Mapa_Goiás.png";
 
-// Dados Oficiais - Coordenadas (x, y) Georeferenciadas em %
 const GOIAS_SCHOOL_DATA = [
   { id: 1, city: "Flores de Goiás", school: "E. M. Santa Maria", students: 160, category: "Gestão de Escolas Municipais", x: 88, y: 35 },
   { id: 2, city: "Rio Quente", school: "E. M. Lourenço Batista", students: 600, category: "Gestão de Escolas Municipais", x: 62, y: 74 },
@@ -52,9 +51,9 @@ const GOIAS_SCHOOL_DATA = [
 ];
 
 const CATEGORIES = {
-  "Rede SESI": { color: "bg-green-500", text: "text-green-600", label: "Rede SESI", icon: <School size={20} /> },
-  "Gestão de Escolas Municipais": { color: "bg-blue-500", text: "text-blue-600", label: "Gestão Municipal", icon: <Building2 size={20} /> },
-  "Indústria": { color: "bg-emerald-900", text: "text-emerald-900", label: "Indústria", icon: <Factory size={20} /> },
+  "Rede SESI": { color: "bg-green-500", text: "text-green-600", border: "border-green-500", label: "Rede SESI", icon: <School size={20} /> },
+  "Gestão de Escolas Municipais": { color: "bg-blue-500", text: "text-blue-600", border: "border-blue-500", label: "Gestão Municipal", icon: <Building2 size={20} /> },
+  "Indústria": { color: "bg-emerald-900", text: "text-emerald-900", border: "border-emerald-900", label: "Indústria", icon: <Factory size={20} /> },
 };
 
 export default function App() {
@@ -64,9 +63,34 @@ export default function App() {
   const [hoveredSchool, setHoveredSchool] = useState(null);
   const [clickedSchool, setClickedSchool] = useState(null);
 
-  const cities = useMemo(() => ["Todas", ...new Set(GOIAS_SCHOOL_DATA.map(d => d.city))].sort(), []);
+  // Sincronização Inteligente de Filtros
+  // Se a combinação de filtros for impossível (ex: Alto Horizonte + Rede SESI), 
+  // reseta o projeto para mostrar os dados disponíveis na cidade.
+  useEffect(() => {
+    if (selectedCity !== "Todas") {
+      const cityHasProject = GOIAS_SCHOOL_DATA.some(s => 
+        s.city === selectedCity && 
+        (selectedProject === "Todas" || s.category === selectedProject)
+      );
+      if (!cityHasProject) setSelectedProject("Todas");
+    }
+  }, [selectedCity]);
+
+  // Limpa escola selecionada se ela sumir dos filtros
+  useEffect(() => {
+    if (selectedSchool !== "Todas") {
+      const schoolStillVisible = GOIAS_SCHOOL_DATA.some(s => 
+        s.school === selectedSchool && 
+        (selectedCity === "Todas" || s.city === selectedCity) &&
+        (selectedProject === "Todas" || s.category === selectedProject)
+      );
+      if (!schoolStillVisible) setSelectedSchool("Todas");
+    }
+  }, [selectedCity, selectedProject, selectedSchool]);
+
+  const citiesList = useMemo(() => ["Todas", ...new Set(GOIAS_SCHOOL_DATA.map(d => d.city))].sort(), []);
   
-  const schools = useMemo(() => {
+  const schoolsList = useMemo(() => {
     let base = GOIAS_SCHOOL_DATA;
     if (selectedCity !== "Todas") base = base.filter(d => d.city === selectedCity);
     if (selectedProject !== "Todas") base = base.filter(d => d.category === selectedProject);
@@ -74,15 +98,15 @@ export default function App() {
   }, [selectedCity, selectedProject]);
 
   const filteredData = useMemo(() => {
-    const data = GOIAS_SCHOOL_DATA.filter(item => {
+    return GOIAS_SCHOOL_DATA.filter(item => {
       const matchesCity = selectedCity === "Todas" || item.city === selectedCity;
       const matchesSchool = selectedSchool === "Todas" || item.school === selectedSchool;
       const matchesProject = selectedProject === "Todas" || item.category === selectedProject;
       return matchesCity && matchesSchool && matchesProject;
-    });
-    return [...data].sort((a, b) => b.students - a.students);
+    }).sort((a, b) => b.students - a.students);
   }, [selectedCity, selectedSchool, selectedProject]);
 
+  // KPIs dinâmicos que SEMPRE refletem o que está no mapa
   const categoryStats = useMemo(() => {
     const stats = { "Rede SESI": 0, "Gestão de Escolas Municipais": 0, "Indústria": 0, "Total": 0 };
     filteredData.forEach(item => {
@@ -95,10 +119,14 @@ export default function App() {
   const getBubbleSize = (count) => {
     const min = 60;
     const max = 1800;
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const baseMin = isMobile ? 18 : 16;
-    const baseMax = isMobile ? 54 : 52;
-    return baseMin + (Math.log10(count / min) / Math.log10(max / min || 1)) * (baseMax - baseMin);
+    const baseMin = 18; // Aumentado para garantir visibilidade em Alto Horizonte
+    const baseMax = 56;
+    // Escala linear para manter precisão de volume em ambientes de BI
+    return baseMin + ((count - min) / (max - min)) * (baseMax - baseMin);
+  };
+
+  const getCategoryConfig = (catName) => {
+    return CATEGORIES[catName] || { color: "bg-slate-400", text: "text-slate-500", label: "Geral", icon: <Info size={20} /> };
   };
 
   const clearFilters = () => {
@@ -111,68 +139,68 @@ export default function App() {
   const activeDetail = clickedSchool || hoveredSchool;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-2 sm:p-4 md:p-8 overflow-x-hidden">
-      {/* Header Responsivo */}
-      <header className="max-w-[1400px] mx-auto mb-6 md:mb-10 flex flex-col gap-6">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 p-4 md:p-8 overflow-x-hidden">
+      <header className="max-w-[1400px] mx-auto mb-8 flex flex-col gap-8">
+        {/* Top Header */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left order-2 md:order-1">
             <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
               <div className="bg-green-600 p-2 rounded-xl shadow-lg text-white">
-                <BarChart3 size={24} className="md:w-7 md:h-7" />
+                <BarChart3 size={28} />
               </div>
-              <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight uppercase leading-tight">
-                Painel Geográfico <br className="hidden sm:block md:hidden" /> <span className="text-green-600">SESI Goiás</span>
+              <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase leading-tight">
+                Painel Estratégico <span className="text-green-600">SESI Goiás</span>
               </h1>
             </div>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[9px] md:text-[10px]">Monitoramento de Matrículas • 2026</p>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Censo Escolar e Projetos Especiais • 2026</p>
           </div>
           <div className="flex-shrink-0 order-1 md:order-2">
-            <img src={LOGO_URL} alt="Logo SESI" className="h-12 sm:h-16 md:h-24 w-auto object-contain mx-auto" />
+            <img src={LOGO_URL} alt="Logo SESI" className="h-14 md:h-24 w-auto object-contain mx-auto" crossOrigin="anonymous" />
           </div>
         </div>
 
-        {/* Barra de Filtros */}
+        {/* Barra de Filtros Robusta */}
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 border-t border-slate-200 pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex gap-4 w-full">
-            <div className="flex flex-col gap-1.5 flex-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Cidade</label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Localidade (Cidade)</label>
               <div className="relative">
-                <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedSchool("Todas"); }} className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-green-500 outline-none appearance-none cursor-pointer shadow-sm">
-                  {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-green-500 outline-none appearance-none cursor-pointer shadow-sm transition-all">
+                  {citiesList.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
-            <div className="flex flex-col gap-1.5 flex-1 md:min-w-[300px]">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Unidade Escolar</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Unidade Escolar Específica</label>
               <div className="relative">
-                <School size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <School size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-green-500 outline-none appearance-none cursor-pointer shadow-sm truncate">
-                  {schools.map(s => <option key={s} value={s}>{s}</option>)}
+                  {schoolsList.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
             <div className="flex items-end">
-              <button onClick={clearFilters} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-black transition-all shadow-md">
-                <FilterX size={16} /> <span>LIMPAR</span>
+              <button onClick={clearFilters} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-black transition-all shadow-md active:scale-95">
+                <FilterX size={16} /> REINICIAR BUSCA
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Grid de KPIs */}
+      {/* KPI Cards que respondem a Alto Horizonte */}
       <section className="max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg transition-all">
-          <div className="flex justify-between items-start mb-4 md:mb-6">
+          <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-slate-50 text-slate-400 rounded-2xl group-hover:bg-slate-900 group-hover:text-white transition-colors"><Users size={20} /></div>
             <TrendingUp size={16} className="text-slate-200" />
           </div>
           <div>
-            <h3 className="text-3xl md:text-4xl font-black leading-none mb-1">{categoryStats.Total.toLocaleString('pt-BR')}</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-60">Matrículas Ativas</p>
+            <h3 className="text-3xl md:text-4xl font-black tabular-nums">{categoryStats.Total.toLocaleString('pt-BR')}</h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Matrículas no Filtro</p>
           </div>
         </div>
         {Object.entries(CATEGORIES).map(([key, config]) => (
@@ -182,20 +210,19 @@ export default function App() {
               <div className={`w-2 h-2 rounded-full ${selectedProject === key ? 'bg-white' : config.color}`}></div>
             </div>
             <div>
-              <h3 className="text-3xl md:text-4xl font-black leading-none mb-1">{categoryStats[key].toLocaleString('pt-BR')}</h3>
-              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${selectedProject === key ? 'text-white/70' : 'text-slate-400'}`}>{config.label}</p>
+              <h3 className="text-3xl md:text-4xl font-black tabular-nums">{categoryStats[key].toLocaleString('pt-BR')}</h3>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${selectedProject === key ? 'text-white/70' : 'text-slate-400'}`}>{config.label}</p>
             </div>
           </div>
         ))}
       </section>
 
-      {/* Conteúdo Principal */}
-      <main className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-        {/* Mapa */}
-        <div className="lg:col-span-8 bg-white p-4 sm:p-10 rounded-[40px] md:rounded-[48px] shadow-sm border border-slate-100 relative min-h-[500px] md:min-h-[750px] flex flex-col">
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-8 relative z-10 gap-4">
-            <h2 className="text-lg md:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 italic uppercase">
-              <MapIcon className="text-green-600" size={24} /> Distribuição Goiás
+      {/* Mapa e Lista */}
+      <main className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 bg-white p-4 sm:p-10 rounded-[48px] shadow-sm border border-slate-100 relative min-h-[500px] md:min-h-[750px] flex flex-col">
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 italic uppercase">
+              <MapIcon className="text-green-600" size={24} /> BI Geográfico
             </h2>
             <div className="flex flex-wrap justify-center gap-3">
               {Object.entries(CATEGORIES).map(([key, config]) => (
@@ -207,44 +234,41 @@ export default function App() {
             </div>
           </div>
 
-          <div className="relative flex-grow bg-slate-50/50 rounded-[30px] md:rounded-[40px] border-2 border-slate-100/50 overflow-hidden flex items-center justify-center p-2 sm:p-4">
-            <img src={MAPA_URL} className="w-full h-full object-contain mix-blend-multiply opacity-80 pointer-events-none transition-opacity duration-500" alt="Goiás" />
+          <div className="relative flex-grow bg-slate-50/50 rounded-[40px] border-2 border-slate-100/50 overflow-hidden flex items-center justify-center">
+            <img src={MAPA_URL} className="w-full h-full object-contain mix-blend-multiply opacity-80 pointer-events-none select-none" alt="Mapa de Goiás" crossOrigin="anonymous" />
             
             <div className="absolute inset-0 z-20">
               {filteredData.map((item) => {
-                const config = CATEGORIES[item.category] || { color: "bg-slate-400" };
+                const config = getCategoryConfig(item.category);
                 const size = getBubbleSize(item.students);
                 const isActive = activeDetail?.id === item.id;
                 const isSelected = clickedSchool?.id === item.id;
                 
                 return (
-                  <div key={item.id} className="absolute cursor-pointer group transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${item.x}%`, top: `${item.y}%`, zIndex: isActive ? 100 : 30 }}>
-                    <span className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 font-black uppercase text-[8px] md:text-[10px] tracking-tight whitespace-nowrap px-1.5 py-0.5 rounded transition-all ${isActive ? 'bg-slate-900 text-white scale-110 z-[101]' : 'bg-white/70 text-slate-900 shadow-sm opacity-80'}`}>
+                  <div key={item.id} className="absolute transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${item.x}%`, top: `${item.y}%`, zIndex: isActive ? 100 : 30 }}>
+                    <span className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 font-black uppercase text-[9px] md:text-[10px] tracking-tight whitespace-nowrap px-1.5 py-0.5 rounded transition-all pointer-events-none ${isActive ? 'bg-slate-900 text-white z-[101]' : 'bg-white/70 text-slate-900 shadow-sm opacity-80'}`}>
                       {item.city}
                     </span>
                     <div 
                       onClick={(e) => { e.stopPropagation(); setClickedSchool(isSelected ? null : item); }}
                       onMouseEnter={() => !clickedSchool && setHoveredSchool(item)}
                       onMouseLeave={() => setHoveredSchool(null)}
-                      className={`rounded-full shadow-2xl border-2 md:border-[3px] border-white transition-all duration-500 ${config.color} ${isActive ? 'scale-125 md:scale-150 ring-[6px] md:ring-[12px] ring-white/30 brightness-110' : 'opacity-85 hover:opacity-100'}`} 
+                      className={`rounded-full shadow-2xl border-2 md:border-[3px] border-white cursor-pointer transition-all duration-500 ${config.color} ${isActive ? 'scale-125 md:scale-150 ring-[10px] ring-white/30 brightness-110' : 'opacity-85 hover:opacity-100'}`} 
                       style={{ width: `${size}px`, height: `${size}px` }} 
                     />
                     {isActive && (
-                      <div className="absolute bottom-full mb-6 md:mb-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-5 md:p-7 rounded-[24px] md:rounded-[32px] shadow-2xl w-[260px] md:min-w-[320px] z-[100] animate-in fade-in slide-in-from-bottom-6 border border-white/10 ring-1 ring-white/20">
-                        {isSelected && <button onClick={(e) => { e.stopPropagation(); setClickedSchool(null); }} className="absolute top-3 right-3 p-1 hover:bg-white/10 rounded-full transition-colors text-white/50"><X size={16} /></button>}
+                      <div className="absolute bottom-full mb-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-5 md:p-7 rounded-[32px] shadow-2xl w-[280px] md:min-w-[320px] z-[100] animate-in fade-in slide-in-from-bottom-4 border border-white/10 ring-1 ring-white/20">
                         <div className="flex justify-between items-start mb-3">
-                          <span className={`text-[8px] md:text-[10px] font-black px-2.5 py-1 rounded-lg ${config.color} text-white uppercase tracking-[0.1em]`}>{config.label || 'SESI'}</span>
-                          <span className="text-[8px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.city}</span>
+                          <span className={`text-[8px] md:text-[10px] font-black px-2.5 py-1 rounded-lg ${config.color} text-white uppercase`}>{config.label}</span>
+                          {isSelected && <button onClick={(e) => { e.stopPropagation(); setClickedSchool(null); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><X size={14} /></button>}
                         </div>
-                        <h4 className="font-black text-base md:text-xl leading-tight mb-4 md:mb-6 pr-4">{item.school}</h4>
-                        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
-                          <div className="flex flex-col gap-1">
-                            <p className="text-[8px] md:text-[10px] font-black text-white/40 uppercase tracking-[0.1em]">Matrículas</p>
+                        <h4 className="font-black text-base md:text-xl leading-tight mb-4">{item.school}</h4>
+                        <div className="pt-4 border-t border-white/10 flex justify-between items-end">
+                          <div>
+                            <p className="text-[9px] font-black text-white/40 uppercase">Total Matriculados</p>
                             <p className="text-2xl md:text-3xl font-black text-green-400 tabular-nums">{item.students.toLocaleString('pt-BR')}</p>
                           </div>
-                          <div className="flex items-center justify-end">
-                            <Users size={24} className="text-white/20" />
-                          </div>
+                          <Users size={24} className="text-white/20" />
                         </div>
                         <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 rotate-45 border-r border-b border-white/10"></div>
                       </div>
@@ -256,22 +280,24 @@ export default function App() {
           </div>
         </div>
 
-        {/* Listagem Lateral */}
-        <div className="lg:col-span-4 bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[500px] md:h-[750px]">
+        <div className="lg:col-span-4 bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[600px] md:h-[750px]">
           <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col gap-2 bg-slate-50/20">
-            <div className="flex items-center justify-between"><span className="font-black text-slate-900 uppercase text-base md:text-lg tracking-tight">Ranking de Matrículas</span><ArrowDownWideNarrow size={20} className="text-green-600" /></div>
-            <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest"><Info size={12} /> Visualização Decrescente</div>
+            <div className="flex items-center justify-between"><span className="font-black text-slate-900 uppercase text-lg tracking-tight">Censo de Unidades</span><ArrowDownWideNarrow size={20} className="text-green-600" /></div>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest"><Info size={12} /> Ordenação Decrescente</div>
           </div>
-          <div className="flex-grow overflow-y-auto p-4 md:p-5 space-y-4 custom-scrollbar">
+          <div className="flex-grow overflow-y-auto p-5 space-y-4 custom-scrollbar">
             {filteredData.map((item) => {
-              const config = CATEGORIES[item.category] || { color: "bg-slate-400" };
+              const config = getCategoryConfig(item.category);
               const isSelected = clickedSchool?.id === item.id || hoveredSchool?.id === item.id;
               return (
-                <div key={item.id} className={`p-5 md:p-6 rounded-[24px] md:rounded-[32px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-slate-900 border-slate-900 text-white shadow-xl -translate-y-1' : 'bg-white border-transparent hover:bg-slate-50'}`} onClick={() => setClickedSchool(item)} onMouseEnter={() => !clickedSchool && setHoveredSchool(item)} onMouseLeave={() => setHoveredSchool(null)}>
+                <div key={item.id} className={`p-6 rounded-[32px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-slate-900 border-slate-900 text-white shadow-xl -translate-y-1' : 'bg-white border-transparent hover:bg-slate-50'}`} onClick={() => setClickedSchool(item)} onMouseEnter={() => !clickedSchool && setHoveredSchool(item)} onMouseLeave={() => setHoveredSchool(null)}>
                   <div className="relative z-10 flex flex-col gap-1">
-                    <div className="flex justify-between items-center mb-1"><span className={`text-[8px] md:text-[9px] font-black uppercase tracking-tighter ${isSelected ? 'text-white/40' : 'text-slate-400'}`}>{item.city}</span><span className={`w-2 h-2 rounded-full ${config.color}`}></span></div>
-                    <h4 className="font-bold text-sm md:text-base leading-tight mb-3 md:mb-4">{item.school}</h4>
-                    <div className="flex items-center justify-between text-xl md:text-2xl font-black tabular-nums tracking-tighter"><span>{item.students.toLocaleString('pt-BR')} <span className="text-[10px] font-medium opacity-50 ml-1 italic">alunos</span></span><ChevronRight size={18} className={isSelected ? 'text-white translate-x-1' : 'text-slate-200'} /></div>
+                    <div className="flex justify-between items-center mb-1"><span className={`text-[8px] md:text-[9px] font-black uppercase ${isSelected ? 'text-white/40' : 'text-slate-400'}`}>{item.city}</span><span className={`w-2 h-2 rounded-full ${config.color}`}></span></div>
+                    <h4 className="font-bold text-base leading-tight mb-4">{item.school}</h4>
+                    <div className="flex items-center justify-between text-2xl font-black tabular-nums tracking-tighter">
+                      <span>{item.students.toLocaleString('pt-BR')} <span className="text-[10px] font-medium opacity-50 ml-1 italic">alunos</span></span>
+                      <ChevronRight size={18} className={isSelected ? 'text-white translate-x-1' : 'text-slate-200'} />
+                    </div>
                   </div>
                   <div className={`absolute top-0 right-0 w-2 h-full ${config.color}`}></div>
                 </div>
@@ -281,13 +307,9 @@ export default function App() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="max-w-[1400px] mx-auto mt-12 pt-10 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 pb-16">
-        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
-          <div className="flex items-center gap-3 font-black italic text-2xl md:text-4xl tracking-tighter text-slate-200 uppercase select-none">SESI <span className="text-green-600 not-italic">GOIÁS</span></div>
-          <div className="flex items-center gap-4 text-slate-400 max-w-sm md:border-l md:border-slate-200 md:pl-8 text-center md:text-left"><TrendingUp size={18} /><p className="text-[9px] font-black uppercase tracking-[0.1em] leading-relaxed">Painel de BI Geográfico • Referência: 2026</p></div>
-        </div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border border-slate-200 px-4 py-2 rounded-full">Matrículas Auditadas</p>
+      <footer className="max-w-[1400px] mx-auto mt-12 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 pb-16">
+        <div className="flex items-center gap-3 font-black italic text-3xl md:text-4xl text-slate-200 uppercase select-none">SESI <span className="text-green-600 not-italic">GOIÁS</span></div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border border-slate-200 px-4 py-2 rounded-full">Painel Auditado • 2026</p>
       </footer>
 
       <style>{`
